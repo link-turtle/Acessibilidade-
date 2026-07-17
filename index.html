@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inclusão na Aula - Assistente de Acessibilidade</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>Assistente de Aula Acessível</h1>
+        <p>Ajuste as configurações para sua melhor experiência.</p>
+    </header>
+
+    <!-- Menu de Navegação por Abas -->
+    <nav class="tab-navigation" role="tablist">
+        <button id="tab-live" class="tab-btn active" role="tab" aria-selected="true" onclick="switchTab('live')">Aula ao Vivo</button>
+        <button id="tab-history" class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('history')">Aulas Salvas</button>
+    </nav>
+
+    <main class="container">
+        
+        <!-- ABA 1: AULA AO VIVO -->
+        <div id="content-live" class="tab-content active">
+            <!-- Painel de Controles Visuais -->
+            <section class="controls-section" aria-label="Controles de Acessibilidade">
+                <button id="btn-zoom" class="btn" onclick="toggleZoom()">Aumentar Texto</button>
+                <button id="btn-contrast" class="btn" onclick="toggleContrast()">Alto Contraste</button>
+                <button id="btn-vibrate-test" class="btn btn-secondary" onclick="testVibration()">Testar Vibração</button>
+            </section>
+
+            <!-- Painel de Transcrição -->
+            <section class="transcription-section">
+                <h2>Transcrição em Tempo Real</h2>
+                <div class="actions">
+                    <button id="btn-start" class="btn btn-success">Iniciar Captação</button>
+                    <button id="btn-stop" class="btn btn-danger" disabled>Parar Captação</button>
+                </div>
+                
+                <div id="transcription-box" class="text-box" role="region" aria-live="v polite" tabindex="0">
+                    O texto da aula aparecerá aqui assim que o professor começar a falar...
+                </div>
+            </section>
+
+            <!-- Resumos Automáticos -->
+            <section class="summary-section">
+                <h2>Resumo Automático da Aula</h2>
+                <div class="actions-summary">
+                    <button id="btn-summary" class="btn btn-secondary" onclick="generateSummary()">Gerar Resumo</button>
+                    <button id="btn-save" class="btn btn-success" onclick="saveCurrentClass()" disabled>Salvar Aula</button>
+                </div>
+                <div id="summary-box" class="text-box" tabindex="0">
+                    O resumo gerado com base no que foi falado aparecerá aqui.
+                </div>
+            </section>
+        </div>
+
+        <!-- ABA 2: HISTÓRICO DE AULAS SALVAS -->
+        <div id="content-history" class="tab-content">
+            <section class="history-section">
+                <h2>Histórico de Aulas</h2>
+                <p style="margin-bottom: 20px; font-size: 0.95rem; opacity: 0.7;">Aulas armazenadas localmente neste dispositivo.</p>
+                
+                <div id="history-list">
+                    <p class="empty-history-msg">Nenhuma aula salva até o momento.</p>
+                </div>
+            </section>
+        </div>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
