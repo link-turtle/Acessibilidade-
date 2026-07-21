@@ -1,12 +1,75 @@
+// IMPORTAÇÃO DOS MÓDULOS DO FIREBASE
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+// CONFIGURAÇÃO DO FIREBASE (Sua chave)
+const firebaseConfig = {
+  apiKey: "AIzaSyCCiVxu-AyMlEPuPfIjLFpoJuSYqZWKpu0",
+  authDomain: "assistente-aula-acessivel.firebaseapp.com",
+  databaseURL: "https://assistente-aula-acessivel-default-rtdb.firebaseio.com",
+  projectId: "assistente-aula-acessivel",
+  storageBucket: "assistente-aula-acessivel.firebasestorage.app",
+  messagingSenderId: "778747702655",
+  appId: "1:778747702655:web:5e1219d36bf0b3b52c3e4a",
+  measurementId: "G-KB30LPR10P"
+};
+
+// INICIALIZAÇÃO
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+let currentUser = null;
 let recognition;
 let fullText = ""; 
+
+// ELEMENTOS DA TELA
 const btnStart = document.getElementById('btn-start');
 const btnStop = document.getElementById('btn-stop');
 const btnSave = document.getElementById('btn-save');
 const transcriptionBox = document.getElementById('transcription-box');
 const summaryBox = document.getElementById('summary-box');
+const btnLogin = document.getElementById('btn-login');
+const btnLogout = document.getElementById('btn-logout');
+const userInfo = document.getElementById('user-info');
+const userName = document.getElementById('user-name');
 
-// 1. CONFIGURAÇÃO DO RECONHECIMENTO DE VOZ
+// --- AUTENTICAÇÃO (LOGIN / LOGOUT) ---
+btnLogin.addEventListener('click', () => {
+    signInWithPopup(auth, provider).catch(err => console.error("Erro no login:", err));
+});
+
+btnLogout.addEventListener('click', () => {
+    signOut(auth);
+});
+
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        currentUser = user;
+        btnLogin.style.display = 'none';
+        userInfo.style.display = 'flex';
+        userName.textContent = `Olá, ${user.displayName.split(' ')[0]}`;
+        renderHistory();
+    } else {
+        currentUser = null;
+        btnLogin.style.display = 'inline-block';
+        userInfo.style.display = 'none';
+        document.getElementById('history-list').innerHTML = '<p class="empty-history-msg">Faça login para ver suas aulas salvas.</p>';
+    }
+});
+
+// --- LIMPAR TRANSCRIÇÃO ---
+window.clearTranscription = function() {
+    vibrateDiscrete();
+    fullText = "";
+    transcriptionBox.innerHTML = "O texto da aula aparecerá aqui assim que o professor começar a falar...";
+    btnSave.disabled = true;
+    speakDiscreetly("Transcrição limpa.");
+};
+
+// --- RECONHECIMENTO DE VOZ ---
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
@@ -31,13 +94,9 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 
         if(finalTranscript !== "") {
             fullText += finalTranscript + ". ";
-            btnSave.disabled = false; // Ativa o botão de salvar ao receber conteúdo
+            btnSave.disabled = false;
         }
         transcriptionBox.innerHTML = fullText + '<span style="opacity: 0.5">' + interimTranscript + '</span>';
-    };
-
-    recognition.onerror = (event) => {
-        console.error(event.error);
     };
 
     btnStart.addEventListener('click', () => {
@@ -59,7 +118,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     btnStart.disabled = true;
 }
 
-// 2. LEITURA EM ÁUDIO (Text-to-Speech)
+// --- ACESSIBILIDADE & UTILITÁRIOS ---
 function speakDiscreetly(text) {
     if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(text);
@@ -69,129 +128,136 @@ function speakDiscreetly(text) {
     }
 }
 
-// 3. VIBRAÇÃO DISCRETA
 function vibrateDiscrete() {
-    if (navigator.vibrate) {
-        navigator.vibrate(80);
-    }
+    if (navigator.vibrate) navigator.vibrate(80);
 }
 
-function testVibration() {
-    vibrateDiscrete();
-}
+window.testVibration = () => vibrateDiscrete();
+window.toggleZoom = () => { document.body.classList.toggle('large-text'); vibrateDiscrete(); };
+window.toggleContrast = () => { document.body.classList.toggle('high-contrast'); vibrateDiscrete(); };
 
-// 4. ACESSIBILIDADE VISUAL
-function toggleZoom() {
-    document.body.classList.toggle('large-text');
-    vibrateDiscrete();
-}
-
-function toggleContrast() {
-    document.body.classList.toggle('high-contrast');
-    vibrateDiscrete();
-}
-
-// 5. CRIAÇÃO DE RESUMOS SIMPLIFICADOS
-function generateSummary() {
+window.generateSummary = function() {
     vibrateDiscrete();
     if (fullText.trim() === "") {
         summaryBox.innerHTML = "Nenhum conteúdo capitado para estruturar um resumo.";
         return;
     }
-
     const frases = fullText.split('. ');
     let resumoHtml = "<strong>Pontos principais anotados:</strong><ul>";
     let topicos = frases.filter(f => f.length > 15).slice(0, 5); 
-
-    if(topicos.length === 0) {
-        topicos = ["Conteúdo curto capturado. Revise a transcrição completa."];
-    }
-
-    topicos.forEach(topico => {
-        resumoHtml += `<li>${topico}.</li>`;
-    });
+    if(topicos.length === 0) topicos = ["Conteúdo curto capturado. Revise a transcrição completa."];
+    topicos.forEach(topico => { resumoHtml += `<li>${topico}.</li>`; });
     resumoHtml += "</ul>";
-
     summaryBox.innerHTML = resumoHtml;
     speakDiscreetly("Resumo gerado.");
-}
+};
 
-// 6. GERENCIAMENTO DE ABAS
-function switchTab(tabName) {
+window.switchTab = function(tabName) {
     vibrateDiscrete();
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    
     document.getElementById(`tab-${tabName}`).classList.add('active');
     document.getElementById(`content-${tabName}`).classList.add('active');
+    if (tabName === 'history') renderHistory();
+};
 
-    if (tabName === 'history') {
-        renderHistory();
-    }
-}
-
-// 7. ARMAZENAMENTO LOCAL (Salvar no Navegador)
-function saveCurrentClass() {
+// --- ARMAZENAMENTO NO FIREBASE (BANCO DE DADOS PRIVADO) ---
+window.saveCurrentClass = async function() {
     vibrateDiscrete();
+    if (!currentUser) {
+        alert("Por favor, faça login com o Google para salvar sua aula na nuvem.");
+        return;
+    }
     if (!fullText.trim()) return;
 
     const currentSummary = summaryBox.innerHTML;
-    const newClass = {
-        id: Date.now(),
-        date: new Date().toLocaleString('pt-BR'),
-        transcript: fullText,
-        summary: currentSummary.includes('Anotados') ? currentSummary : "<p>Sem notas geradas.</p>"
-    };
+    try {
+        // Salva na sub-coleção privada do usuário
+        await addDoc(collection(db, "users", currentUser.uid, "classes"), {
+            date: new Date().toLocaleString('pt-BR'),
+            createdAt: new Date(),
+            transcript: fullText,
+            summary: currentSummary.includes('Anotados') ? currentSummary : "<p>Sem notas geradas.</p>"
+        });
+        alert("Aula salva com segurança na sua conta!");
+    } catch (error) {
+        console.error("Erro ao salvar aula:", error);
+        alert("Erro ao salvar aula no banco de dados.");
+    }
+};
 
-    let history = JSON.parse(localStorage.getItem('savedClasses')) || [];
-    history.unshift(newClass);
-    localStorage.setItem('savedClasses', JSON.stringify(history));
-
-    alert("Aula salva no histórico com sucesso!");
-}
-
-// 8. RENDERIZAR HISTÓRICO
-function renderHistory() {
+async function renderHistory() {
     const historyList = document.getElementById('history-list');
-    const history = JSON.parse(localStorage.getItem('savedClasses')) || [];
-
-    if (history.length === 0) {
-        historyList.innerHTML = '<p class="empty-history-msg">Nenhuma aula salva até o momento.</p>';
+    if (!currentUser) {
+        historyList.innerHTML = '<p class="empty-history-msg">Faça login para ver suas aulas salvas.</p>';
         return;
     }
 
-    historyList.innerHTML = "";
-    history.forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'history-item';
-        itemElement.innerHTML = `
-            <div class="history-item-header">
-                <div>
-                    <span class="history-item-title">Aula Gravada</span>
-                    <div class="history-item-date">${item.date}</div>
-                </div>
-                <button class="btn btn-delete" onclick="deleteClass(${item.id})">Excluir</button>
-            </div>
-            <details style="margin-bottom: 10px; cursor: pointer;">
-                <summary style="font-weight: 600; color: var(--primary-color);">Ver Transcrição Completa</summary>
-                <div class="text-box" style="min-height: auto; margin-top: 5px;">${item.transcript}</div>
-            </details>
-            <details style="cursor: pointer;">
-                <summary style="font-weight: 600; color: var(--success-color);">Ver Anotações/Resumo</summary>
-                <div style="margin-top: 10px;">${item.summary}</div>
-            </details>
-        `;
-        historyList.appendChild(itemElement);
-    });
-}
+    try {
+        const q = query(collection(db, "users", currentUser.uid, "classes"), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
 
-// 9. EXCLUIR HISTÓRICO
-function deleteClass(id) {
-    vibrateDiscrete();
-    if(confirm("Apagar o registro desta aula?")) {
-        let history = JSON.parse(localStorage.getItem('savedClasses')) || [];
-        history = history.filter(item => item.id !== id);
-        localStorage.setItem('savedClasses', JSON.stringify(history));
-        renderHistory();
+        if (querySnapshot.empty) {
+            historyList.innerHTML = '<p class="empty-history-msg">Nenhuma aula salva na sua conta até o momento.</p>';
+            return;
+        }
+
+        historyList.innerHTML = "";
+        querySnapshot.forEach((docSnap) => {
+            const item = docSnap.data();
+            const id = docSnap.id;
+            const itemElement = document.createElement('div');
+            itemElement.className = 'history-item';
+            itemElement.innerHTML = `
+                <div class="history-item-header">
+                    <div>
+                        <span class="history-item-title">Aula Gravada</span>
+                        <div class="history-item-date">${item.date}</div>
+                    </div>
+                    <div class="history-actions">
+                        <button class="btn btn-share" onclick="shareClass('${id}', \`${encodeURIComponent(item.transcript)}\`, \`${encodeURIComponent(item.summary)}\`, '${item.date}')">Compartilhar</button>
+                        <button class="btn btn-delete" onclick="deleteClass('${id}')">Excluir</button>
+                    </div>
+                </div>
+                <details style="margin-bottom: 10px; cursor: pointer;">
+                    <summary style="font-weight: 600; color: var(--primary-color);">Ver Transcrição Completa</summary>
+                    <div class="text-box" style="min-height: auto; margin-top: 5px;">${item.transcript}</div>
+                </details>
+                <details style="cursor: pointer;">
+                    <summary style="font-weight: 600; color: var(--success-color);">Ver Anotações/Resumo</summary>
+                    <div style="margin-top: 10px;">${item.summary}</div>
+                </details>
+            `;
+            historyList.appendChild(itemElement);
+        });
+    } catch (error) {
+        console.error("Erro ao carregar histórico:", error);
     }
 }
+
+window.shareClass = function(id, encTranscript, encSummary, date) {
+    vibrateDiscrete();
+    const transcript = decodeURIComponent(encTranscript);
+    const summary = decodeURIComponent(encSummary).replace(/<[^>]*>?/gm, '');
+    const shareContent = `📌 *Aula Gravada em ${date}*\n\n📝 *Transcrição:* \n${transcript}\n\n💡 *Resumo:* \n${summary}`;
+
+    if (navigator.share) {
+        navigator.share({ title: `Aula Gravada - ${date}`, text: shareContent })
+            .catch(err => console.log("Compartilhamento cancelado.", err));
+    } else {
+        navigator.clipboard.writeText(shareContent);
+        alert("Conteúdo da aula copiado para a área de transferência!");
+    }
+};
+
+window.deleteClass = async function(id) {
+    vibrateDiscrete();
+    if(confirm("Apagar o registro desta aula?")) {
+        try {
+            await deleteDoc(doc(db, "users", currentUser.uid, "classes", id));
+            renderHistory();
+        } catch (error) {
+            console.error("Erro ao apagar:", error);
+        }
+    }
+};
