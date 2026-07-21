@@ -3,7 +3,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// CONFIGURAÇÃO DO FIREBASE (Sua chave)
+// CONFIGURAÇÃO DO FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyCCiVxu-AyMlEPuPfIjLFpoJuSYqZWKpu0",
   authDomain: "assistente-aula-acessivel.firebaseapp.com",
@@ -139,7 +139,7 @@ window.toggleContrast = () => { document.body.classList.toggle('high-contrast');
 window.generateSummary = function() {
     vibrateDiscrete();
     if (fullText.trim() === "") {
-        summaryBox.innerHTML = "Nenhum conteúdo capitado para estruturar um resumo.";
+        summaryBox.innerHTML = "Nenhum conteúdo capturado para estruturar um resumo.";
         return;
     }
     const frases = fullText.split('. ');
@@ -186,6 +186,24 @@ window.saveCurrentClass = async function() {
     }
 };
 
+// --- FUNÇÃO PARA REFALAR A AULA DO HISTÓRICO ---
+window.speakClass = function(encTranscript, encSummary) {
+    vibrateDiscrete();
+    
+    // Cancela qualquer fala que esteja em andamento no momento
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+
+    const transcript = decodeURIComponent(encTranscript);
+    const summary = decodeURIComponent(encSummary).replace(/<[^>]*>?/gm, ''); // Remove as tags HTML do resumo
+
+    // Texto completo a ser falado
+    const fullSpeech = `Reproduzindo aula salva. Transcrição: ${transcript}. Resumo: ${summary}`;
+
+    speakDiscreetly(fullSpeech);
+};
+
 async function renderHistory() {
     const historyList = document.getElementById('history-list');
     if (!currentUser) {
@@ -214,9 +232,10 @@ async function renderHistory() {
                         <span class="history-item-title">Aula Gravada</span>
                         <div class="history-item-date">${item.date}</div>
                     </div>
-                    <div class="history-actions">
-                        <button class="btn btn-share" onclick="shareClass('${id}', \`${encodeURIComponent(item.transcript)}\`, \`${encodeURIComponent(item.summary)}\`, '${item.date}')">Compartilhar</button>
-                        <button class="btn btn-delete" onclick="deleteClass('${id}')">Excluir</button>
+                    <div class="history-actions" style="display: flex; gap: 5px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="speakClass(\`${encodeURIComponent(item.transcript)}\`, \`${encodeURIComponent(item.summary)}\`)" style="padding: 5px 10px; font-size: 0.85rem;">🔊 Ouvir Aula</button>
+                        <button class="btn btn-share" onclick="shareClass('${id}', \`${encodeURIComponent(item.transcript)}\`, \`${encodeURIComponent(item.summary)}\`, '${item.date}')" style="padding: 5px 10px; font-size: 0.85rem;">Compartilhar</button>
+                        <button class="btn btn-delete" onclick="deleteClass('${id}')" style="padding: 5px 10px; font-size: 0.85rem;">Excluir</button>
                     </div>
                 </div>
                 <details style="margin-bottom: 10px; cursor: pointer;">
