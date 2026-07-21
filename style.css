@@ -318,3 +318,22 @@ body.high-contrast .history-item {
     opacity: 0.6;
     padding: 20px;
 }
+/* Agrupamento de ações no histórico */
+.history-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-share {
+    background-color: var(--primary-color);
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    box-shadow: none;
+}
+
+body.high-contrast .btn-share {
+    border: 1px solid var(--text-color);
+    background: transparent;
+    color: var(--text-color);
+}
