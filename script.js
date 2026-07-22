@@ -36,13 +36,43 @@ const btnLogout = document.getElementById('btn-logout');
 const userInfo = document.getElementById('user-info');
 const userName = document.getElementById('user-name');
 
+// --- NOTIFICAÇÃO PERSONALIZADA (TOAST) ---
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toast-message');
+    const toastIcon = document.getElementById('toast-icon');
+
+    if (!toast) return;
+
+    toastMessage.textContent = message;
+
+    if (type === 'error') {
+        toast.classList.add('toast-error');
+        toastIcon.textContent = '⚠️';
+    } else {
+        toast.classList.remove('toast-error');
+        toastIcon.textContent = '✅';
+    }
+
+    toast.classList.add('show');
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3500);
+}
+
 // --- AUTENTICAÇÃO (LOGIN / LOGOUT) ---
 btnLogin.addEventListener('click', () => {
-    signInWithPopup(auth, provider).catch(err => console.error("Erro no login:", err));
+    signInWithPopup(auth, provider).catch(err => {
+        console.error("Erro no login:", err);
+        showToast("Erro ao realizar o login.", "error");
+    });
 });
 
 btnLogout.addEventListener('click', () => {
-    signOut(auth);
+    signOut(auth).then(() => {
+        showToast("Você saiu da sua conta.");
+    });
 });
 
 onAuthStateChanged(auth, (user) => {
@@ -60,13 +90,13 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// --- LIMPAR TRANSCRIÇÃO ---
+// --- LIMPAR TRANSCRIÇÃO E RESUMO ---
 window.clearTranscription = function() {
     vibrateDiscrete();
     fullText = "";
     transcriptionBox.innerHTML = "O texto da aula aparecerá aqui assim que o professor começar a falar...";
+    summaryBox.innerHTML = "O resumo gerado com base no que foi falado aparecerá aqui.";
     btnSave.disabled = true;
-    speakDiscreetly("Transcrição limpa.");
 };
 
 // --- RECONHECIMENTO DE VOZ ---
@@ -139,7 +169,7 @@ window.toggleContrast = () => { document.body.classList.toggle('high-contrast');
 window.generateSummary = function() {
     vibrateDiscrete();
     if (fullText.trim() === "") {
-        summaryBox.innerHTML = "Nenhum conteúdo capturado para estruturar um resumo.";
+        summaryBox.innerHTML = "Nada foi capturado, para o resumo.";
         return;
     }
     const frases = fullText.split('. ');
@@ -165,24 +195,33 @@ window.switchTab = function(tabName) {
 window.saveCurrentClass = async function() {
     vibrateDiscrete();
     if (!currentUser) {
-        alert("Por favor, faça login com o Google para salvar sua aula na nuvem.");
+        showToast("Faça login para puder salvar a aula.", "error");
         return;
     }
     if (!fullText.trim()) return;
 
-    const currentSummary = summaryBox.innerHTML;
+    const currentSummaryHtml = summaryBox.innerHTML;
+    const isDefaultText = currentSummaryHtml.includes("O resumo gerado com base no que foi falado aparecerá aqui");
+    const summaryToSave = (isDefaultText || !currentSummaryHtml.trim()) 
+        ? "<p>Sem notas geradas.</p>" 
+        : currentSummaryHtml;
+
     try {
-        // Salva na sub-coleção privada do usuário
         await addDoc(collection(db, "users", currentUser.uid, "classes"), {
             date: new Date().toLocaleString('pt-BR'),
             createdAt: new Date(),
             transcript: fullText,
-            summary: currentSummary.includes('Anotados') ? currentSummary : "<p>Sem notas geradas.</p>"
+            summary: summaryToSave
         });
-        alert("Aula salva com segurança na sua conta!");
+
+        showToast("Aula salva com sucesso!");
+
+        clearTranscription();
+        speakDiscreetly("Aula salva.");
+
     } catch (error) {
         console.error("Erro ao salvar aula:", error);
-        alert("Erro ao salvar aula no banco de dados.");
+        showToast("Erro ao salvar a aula no banco de dados.", "error");
     }
 };
 
@@ -190,15 +229,13 @@ window.saveCurrentClass = async function() {
 window.speakClass = function(encTranscript, encSummary) {
     vibrateDiscrete();
     
-    // Cancela qualquer fala que esteja em andamento no momento
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
     }
 
     const transcript = decodeURIComponent(encTranscript);
-    const summary = decodeURIComponent(encSummary).replace(/<[^>]*>?/gm, ''); // Remove as tags HTML do resumo
+    const summary = decodeURIComponent(encSummary).replace(/<[^>]*>?/gm, '');
 
-    // Texto completo a ser falado
     const fullSpeech = `Reproduzindo aula salva. Transcrição: ${transcript}. Resumo: ${summary}`;
 
     speakDiscreetly(fullSpeech);
@@ -265,7 +302,7 @@ window.shareClass = function(id, encTranscript, encSummary, date) {
             .catch(err => console.log("Compartilhamento cancelado.", err));
     } else {
         navigator.clipboard.writeText(shareContent);
-        alert("Conteúdo da aula copiado para a área de transferência!");
+        showToast("Conteúdo copiado para a área de transferência!");
     }
 };
 
@@ -274,9 +311,11 @@ window.deleteClass = async function(id) {
     if(confirm("Apagar o registro desta aula?")) {
         try {
             await deleteDoc(doc(db, "users", currentUser.uid, "classes", id));
+            showToast("Aula excluída.");
             renderHistory();
         } catch (error) {
             console.error("Erro ao apagar:", error);
+            showToast("Erro ao excluir aula.", "error");
         }
     }
 };
