@@ -3,84 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inclusão na Aula - Assistente de Acessibilidade</title>
+    <title>Assistente de Aula Acessível</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+    <!-- BARRA SUPERIOR (LOGIN / PERFIL) -->
+    <div class="top-bar">
+        <button id="btn-login" class="btn btn-login">
+            <span class="icon">👤</span> Entrar com Google
+        </button>
+        <div id="user-info" class="user-info" style="display: none;">
+            <span id="user-name" class="user-name"></span>
+            <button id="btn-logout" class="btn-logout" title="Sair da conta">Sair</button>
+        </div>
+    </div>
+
+    <!-- CABEÇALHO DA APLICAÇÃO -->
     <header>
         <h1>Assistente de Aula Acessível</h1>
-        <p>Ajuste as configurações para sua melhor experiência.</p>
-        
-        <!-- ÁREA DE LOGIN (ADICIONADA) -->
-        <div id="auth-container" style="margin-top: 15px;">
-            <button id="btn-login" class="btn btn-primary">Entrar com Google</button>
-            <div id="user-info" style="display: none; font-size: 0.9rem; align-items: center; justify-content: center; gap: 10px;">
-                <span id="user-name"></span>
-                <button id="btn-logout" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8rem;">Sair</button>
-            </div>
-        </div>
+        <p>Transcrição e resumo inteligente em tempo real</p>
     </header>
 
-    <!-- Menu de Navegação por Abas -->
-    <nav class="tab-navigation" role="tablist">
-        <button id="tab-live" class="tab-btn active" role="tab" aria-selected="true" onclick="switchTab('live')">Aula ao Vivo</button>
-        <button id="tab-history" class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('history')">Aulas Salvas</button>
-    </nav>
+    <!-- NAVEGAÇÃO DE ABAS -->
+    <div class="tab-navigation" role="tablist" aria-label="Navegação Principal">
+        <button class="tab-btn active" id="tab-aula" onclick="switchTab('aula')" role="tab" aria-selected="true">🎙️ Gravador</button>
+        <button class="tab-btn" id="tab-history" onclick="switchTab('history')" role="tab" aria-selected="false">📚 Aulas Salvas</button>
+        <button class="tab-btn" id="tab-settings" onclick="switchTab('settings')" role="tab" aria-selected="false">⚙️ Acessibilidade</button>
+    </div>
 
     <main class="container">
-        
-        <!-- ABA 1: AULA AO VIVO -->
-        <div id="content-live" class="tab-content active">
-            <!-- Painel de Controles Visuais -->
-            <section class="controls-section" aria-label="Controles de Acessibilidade">
-                <button id="btn-zoom" class="btn" onclick="toggleZoom()">Aumentar Texto</button>
-                <button id="btn-contrast" class="btn" onclick="toggleContrast()">Alto Contraste</button>
-                <button id="btn-vibrate-test" class="btn btn-secondary" onclick="testVibration()">Testar Vibração</button>
-            </section>
-
-            <!-- Painel de Transcrição -->
-            <section class="transcription-section">
-                <h2>Transcrição em Tempo Real</h2>
-                <div class="actions">
-                    <button id="btn-start" class="btn btn-success">Iniciar Captação</button>
-                    <button id="btn-stop" class="btn btn-danger" disabled>Parar Captação</button>
-                    <button id="btn-clear" class="btn btn-secondary" style="grid-column: span 2;" onclick="clearTranscription()">Limpar Transcrição</button>
-                </div>
-                
-                <div id="transcription-box" class="text-box" role="region" aria-live="polite" tabindex="0">
-                    O texto da aula aparecerá aqui assim que o professor começar a falar...
+        <!-- ABA 1: CAPTURA DE AULA -->
+        <div id="content-aula" class="tab-content active">
+            
+            <!-- CONTROLES PRINCIPAIS DA GRAVAÇÃO -->
+            <section aria-labelledby="controls-heading">
+                <h2 id="controls-heading">Controles da Gravação</h2>
+                <div class="controls-section">
+                    <button id="btn-start" class="btn btn-success">
+                        <span class="icon">▶</span> Iniciar Aula
+                    </button>
+                    <button id="btn-stop" class="btn btn-danger" disabled>
+                        <span class="icon">⏹</span> Parar Aula
+                    </button>
                 </div>
             </section>
 
-            <!-- Resumos Automáticos -->
-            <section class="summary-section">
-                <h2>Resumo Automático da Aula</h2>
-                <div class="actions-summary">
-                    <button id="btn-summary" class="btn btn-secondary" onclick="generateSummary()">Gerar Resumo</button>
-                    <button id="btn-save" class="btn btn-success" onclick="saveCurrentClass()" disabled>Salvar Aula</button>
+            <!-- PAINEL DE TRANSCRIÇÃO DA AULA -->
+            <section aria-labelledby="transcription-heading">
+                <div class="section-header">
+                    <h2 id="transcription-heading">Transcrição ao Vivo</h2>
+                    <button class="btn-text-action" onclick="clearTranscription()" title="Limpar transcrição">Limpar</button>
                 </div>
-                <div id="summary-box" class="text-box" tabindex="0">
-                    O resumo gerado com base no que foi falado aparecerá aqui.
+                <div id="transcription-box" class="text-box" role="region" aria-live="polite">
+                    O texto da aula aparecerá assim que o professor começar a falar...
+                </div>
+            </section>
+
+            <!-- RESUMO E AÇÕES FINAIS DE SALVAMENTO -->
+            <section aria-labelledby="summary-heading">
+                <div class="section-header">
+                    <h2 id="summary-heading">Resumo das Anotações</h2>
+                    <button class="btn-text-action" onclick="generateSummary()"> Gerar Resumo</button>
+                </div>
+                <div id="summary-box" class="text-box" role="region" aria-live="polite">
+                    O resumo será gerado com base no que foi falado.
+                </div>
+
+                <div class="save-container">
+                    <button id="btn-save" class="btn btn-primary btn-save-large" onclick="saveCurrentClass()" disabled>
+                        Salvar Aula
+                    </button>
                 </div>
             </section>
         </div>
 
-        <!-- ABA 2: HISTÓRICO DE AULAS SALVAS -->
+        <!-- ABA 2: HISTÓRICO DE AULAS -->
         <div id="content-history" class="tab-content">
-            <section class="history-section">
-                <h2>Histórico de Aulas</h2>
-                <p style="margin-bottom: 20px; font-size: 0.95rem; opacity: 0.7;">Aulas privadas salvas na sua conta.</p>
-                
+            <section>
+                <h2>Suas Aulas Salvas</h2>
                 <div id="history-list">
-                    <p class="empty-history-msg">Faça login para ver suas aulas salvas.</p>
+                    <p class="empty-history-msg">Carregando aulas...</p>
                 </div>
             </section>
         </div>
 
+        <!-- ABA 3: ACCESSIBILIDADE E FERRAMENTAS -->
+        <div id="content-settings" class="tab-content">
+            <section>
+                <h2>Acessibilidade & Ajustes</h2>
+                <div class="controls-section">
+                    <button class="btn btn-secondary" onclick="toggleContrast()"> Alto Contraste</button>
+                    <button class="btn btn-secondary" onclick="toggleZoom()"> Aumentar Texto</button>
+                    <button class="btn btn-secondary" onclick="testVibration()"> Testar Vibração</button>
+                </div>
+            </section>
+        </div>
     </main>
 
-    <!-- MUDANÇA IMPORTANTE: type="module" -->
+    <!-- NOTIFICAÇÃO TOAST FLUTUANTE -->
+    <div id="toast" class="toast" role="status" aria-live="polite">
+        <span id="toast-icon">✅</span>
+        <span id="toast-message">Mensagem de aviso</span>
+    </div>
+
     <script type="module" src="script.js"></script>
 </body>
 </html>
