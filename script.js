@@ -144,19 +144,27 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 
     recognition.onresult = (event) => {
         let interimTranscript = '';
+        let finalTranscript = '';
 
+        // Varre todos os resultados do evento atual
         for (let i = event.resultIndex; i < event.results.length; ++i) {
             const transcriptChunk = event.results[i][0].transcript;
             
             if (event.results[i].isFinal) {
-                fullText += transcriptChunk + " ";
-                btnSave.disabled = false;
-                vibrateDiscrete();
+                finalTranscript += transcriptChunk + ' ';
             } else {
                 interimTranscript += transcriptChunk;
             }
         }
 
+        // Adiciona apenas o texto final e limpo à variável global fullText
+        if (finalTranscript) {
+            fullText += finalTranscript;
+            btnSave.disabled = false;
+            vibrateDiscrete();
+        }
+
+        // Exibe o texto gravado + o texto parcial (cinza) sem duplicar
         transcriptionBox.innerHTML = fullText + '<span style="opacity: 0.5">' + interimTranscript + '</span>';
     };
 
