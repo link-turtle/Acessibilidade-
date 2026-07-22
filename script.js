@@ -103,11 +103,11 @@ window.clearTranscription = function() {
 // --- FUNÇÃO PARA LER EM VOZ ALTA SEM CRIAR LOOP ---
 function speakDiscreetly(text) {
     if ('speechSynthesis' in window && text.trim() !== "") {
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'pt-BR';
         utterance.rate = 1.0;
 
-        // Quando o leitor começar a falar, para a escuta do microfone
         utterance.onstart = () => {
             isSpeaking = true;
             if (recognition) {
@@ -115,7 +115,6 @@ function speakDiscreetly(text) {
             }
         };
 
-        // Quando terminar de falar, volta a ouvir o professor
         utterance.onend = () => {
             isSpeaking = false;
             if (recognition && btnStart.disabled) {
@@ -144,21 +143,15 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     recognition.lang = 'pt-BR';
 
     recognition.onresult = (event) => {
-        // Se o sintetizador estiver falando, ignora para não duplicar
-        if (isSpeaking) return;
-
         let interimTranscript = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
             const transcriptChunk = event.results[i][0].transcript;
             
             if (event.results[i].isFinal) {
-                fullText += transcriptChunk + ". ";
+                fullText += transcriptChunk + " ";
                 btnSave.disabled = false;
                 vibrateDiscrete();
-                
-                // Lê o trecho e pausa o microfone brevemente
-                speakDiscreetly(transcriptChunk);
             } else {
                 interimTranscript += transcriptChunk;
             }
@@ -167,8 +160,15 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
         transcriptionBox.innerHTML = fullText + '<span style="opacity: 0.5">' + interimTranscript + '</span>';
     };
 
-    // Reinicia o escutador se ele fechar sozinho
+    recognition.onerror = (event) => {
+        console.error("Erro no reconhecimento de voz:", event.error);
+        if (event.error === 'not-allowed') {
+            showToast("Permissão de microfone negada no navegador.", "error");
+        }
+    };
+
     recognition.onend = () => {
+        // Se a gravação estiver ativa e o leitor não estiver falando, reconecta o microfone
         if (btnStart.disabled && !isSpeaking) {
             try { recognition.start(); } catch(e) {}
         }
@@ -177,7 +177,14 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     btnStart.addEventListener('click', () => {
         fullText = "";
         isSpeaking = false;
-        try { recognition.start(); } catch(e) {}
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
+        try { 
+            recognition.start(); 
+        } catch(e) {
+            console.error("Erro ao iniciar:", e);
+        }
         btnStart.disabled = true;
         btnStop.disabled = false;
         transcriptionBox.innerHTML = "Ouvindo o professor...";
