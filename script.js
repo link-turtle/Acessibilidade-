@@ -24,6 +24,7 @@ const provider = new GoogleAuthProvider();
 let currentUser = null;
 let recognition;
 let fullText = ""; 
+let isSpeaking = false; // Controle para evitar loop de áudio
 
 // ELEMENTOS DA TELA
 const btnStart = document.getElementById('btn-start');
@@ -99,6 +100,40 @@ window.clearTranscription = function() {
     btnSave.disabled = true;
 };
 
+// --- FUNÇÃO PARA LER EM VOZ ALTA SEM CRIAR LOOP ---
+function speakDiscreetly(text) {
+    if ('speechSynthesis' in window && text.trim() !== "") {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'pt-BR';
+        utterance.rate = 1.0;
+
+        // Quando o leitor começar a falar, para a escuta do microfone
+        utterance.onstart = () => {
+            isSpeaking = true;
+            if (recognition) {
+                try { recognition.stop(); } catch(e) {}
+            }
+        };
+
+        // Quando terminar de falar, volta a ouvir o professor
+        utterance.onend = () => {
+            isSpeaking = false;
+            if (recognition && btnStart.disabled) {
+                try { recognition.start(); } catch(e) {}
+            }
+        };
+
+        utterance.onerror = () => {
+            isSpeaking = false;
+            if (recognition && btnStart.disabled) {
+                try { recognition.start(); } catch(e) {}
+            }
+        };
+
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
 // --- RECONHECIMENTO DE VOZ ---
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -109,28 +144,40 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     recognition.lang = 'pt-BR';
 
     recognition.onresult = (event) => {
+        // Se o sintetizador estiver falando, ignora para não duplicar
+        if (isSpeaking) return;
+
         let interimTranscript = '';
-        let finalTranscript = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
+            const transcriptChunk = event.results[i][0].transcript;
+            
             if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript;
-                speakDiscreetly(event.results[i][0].transcript);
+                fullText += transcriptChunk + ". ";
+                btnSave.disabled = false;
                 vibrateDiscrete();
+                
+                // Lê o trecho e pausa o microfone brevemente
+                speakDiscreetly(transcriptChunk);
             } else {
-                interimTranscript += event.results[i][0].transcript;
+                interimTranscript += transcriptChunk;
             }
         }
 
-        if(finalTranscript !== "") {
-            fullText += finalTranscript + ". ";
-            btnSave.disabled = false;
-        }
         transcriptionBox.innerHTML = fullText + '<span style="opacity: 0.5">' + interimTranscript + '</span>';
     };
 
+    // Reinicia o escutador se ele fechar sozinho
+    recognition.onend = () => {
+        if (btnStart.disabled && !isSpeaking) {
+            try { recognition.start(); } catch(e) {}
+        }
+    };
+
     btnStart.addEventListener('click', () => {
-        recognition.start();
+        fullText = "";
+        isSpeaking = false;
+        try { recognition.start(); } catch(e) {}
         btnStart.disabled = true;
         btnStop.disabled = false;
         transcriptionBox.innerHTML = "Ouvindo o professor...";
@@ -138,7 +185,11 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     });
 
     btnStop.addEventListener('click', () => {
-        recognition.stop();
+        isSpeaking = false;
+        try { recognition.stop(); } catch(e) {}
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
         btnStart.disabled = false;
         btnStop.disabled = true;
         vibrateDiscrete();
@@ -149,21 +200,23 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 }
 
 // --- ACESSIBILIDADE & UTILITÁRIOS ---
-function speakDiscreetly(text) {
-    if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'pt-BR';
-        utterance.rate = 1.1; 
-        window.speechSynthesis.speak(utterance);
-    }
-}
-
 function vibrateDiscrete() {
     if (navigator.vibrate) navigator.vibrate(80);
 }
 
 window.testVibration = () => vibrateDiscrete();
-window.toggleZoom = () => { document.body.classList.toggle('large-text'); vibrateDiscrete(); };
+
+window.toggleZoom = () => { 
+    document.body.classList.toggle('large-text'); 
+    vibrateDiscrete(); 
+
+    if (document.body.classList.contains('large-text')) {
+        showToast("Tamanho do texto aumentado!");
+    } else {
+        showToast("Tamanho do texto restaurado.");
+    }
+};
+
 window.toggleContrast = () => { document.body.classList.toggle('high-contrast'); vibrateDiscrete(); };
 
 window.generateSummary = function() {
