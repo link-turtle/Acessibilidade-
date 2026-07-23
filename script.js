@@ -24,7 +24,6 @@ const provider = new GoogleAuthProvider();
 let currentUser = null;
 let recognition;
 let fullText = ""; 
-let isSpeaking = false; // Controle para evitar loop de áudio
 
 // ELEMENTOS DA TELA
 const btnStart = document.getElementById('btn-start');
@@ -100,35 +99,12 @@ window.clearTranscription = function() {
     btnSave.disabled = true;
 };
 
-// --- FUNÇÃO PARA LER EM VOZ ALTA SEM CRIAR LOOP ---
-function speakDiscreetly(text) {
+// --- FUNÇÃO PARA LER EM VOZ ALTA ---
+function speakText(text) {
     if ('speechSynthesis' in window && text.trim() !== "") {
-        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'pt-BR';
         utterance.rate = 1.0;
-
-        utterance.onstart = () => {
-            isSpeaking = true;
-            if (recognition) {
-                try { recognition.stop(); } catch(e) {}
-            }
-        };
-
-        utterance.onend = () => {
-            isSpeaking = false;
-            if (recognition && btnStart.disabled) {
-                try { recognition.start(); } catch(e) {}
-            }
-        };
-
-        utterance.onerror = () => {
-            isSpeaking = false;
-            if (recognition && btnStart.disabled) {
-                try { recognition.start(); } catch(e) {}
-            }
-        };
-
         window.speechSynthesis.speak(utterance);
     }
 }
@@ -144,27 +120,27 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 
     recognition.onresult = (event) => {
         let interimTranscript = '';
-        let finalTranscript = '';
+        let finalChunk = '';
 
-        // Varre todos os resultados do evento atual
         for (let i = event.resultIndex; i < event.results.length; ++i) {
             const transcriptChunk = event.results[i][0].transcript;
             
             if (event.results[i].isFinal) {
-                finalTranscript += transcriptChunk + ' ';
+                finalChunk += transcriptChunk + " ";
             } else {
                 interimTranscript += transcriptChunk;
             }
         }
 
-        // Adiciona apenas o texto final e limpo à variável global fullText
-        if (finalTranscript) {
-            fullText += finalTranscript;
+        if (finalChunk) {
+            fullText += finalChunk;
             btnSave.disabled = false;
             vibrateDiscrete();
+            
+            // LER O TRECHO EM VOZ ALTA ENQUANTO O PROFESSOR FALA
+            speakText(finalChunk);
         }
 
-        // Exibe o texto gravado + o texto parcial (cinza) sem duplicar
         transcriptionBox.innerHTML = fullText + '<span style="opacity: 0.5">' + interimTranscript + '</span>';
     };
 
@@ -176,15 +152,14 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     };
 
     recognition.onend = () => {
-        // Se a gravação estiver ativa e o leitor não estiver falando, reconecta o microfone
-        if (btnStart.disabled && !isSpeaking) {
+        // Reinicia o escutador se ainda estiver com a aula em andamento
+        if (btnStart.disabled) {
             try { recognition.start(); } catch(e) {}
         }
     };
 
     btnStart.addEventListener('click', () => {
         fullText = "";
-        isSpeaking = false;
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
         }
@@ -200,7 +175,6 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     });
 
     btnStop.addEventListener('click', () => {
-        isSpeaking = false;
         try { recognition.stop(); } catch(e) {}
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
@@ -247,7 +221,7 @@ window.generateSummary = function() {
     topicos.forEach(topico => { resumoHtml += `<li>${topico}.</li>`; });
     resumoHtml += "</ul>";
     summaryBox.innerHTML = resumoHtml;
-    speakDiscreetly("Resumo gerado.");
+    speakText("Resumo gerado.");
 };
 
 window.switchTab = function(tabName) {
@@ -285,7 +259,7 @@ window.saveCurrentClass = async function() {
         showToast("Aula salva com sucesso!");
 
         clearTranscription();
-        speakDiscreetly("Aula salva.");
+        speakText("Aula salva.");
 
     } catch (error) {
         console.error("Erro ao salvar aula:", error);
@@ -306,7 +280,7 @@ window.speakClass = function(encTranscript, encSummary) {
 
     const fullSpeech = `Reproduzindo aula salva. Transcrição: ${transcript}. Resumo: ${summary}`;
 
-    speakDiscreetly(fullSpeech);
+    speakText(fullSpeech);
 };
 
 async function renderHistory() {
